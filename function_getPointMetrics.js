@@ -42,6 +42,8 @@ async function main(params) {
         }
         
         const metrics = JSON.parse(metricsStr);
+        const secondsInDay = metrics.lastBlockTimestamp - metrics.firstBlockTimestamp;
+        const tps = secondsInDay > 0 ? metrics.totalTransactions / secondsInDay : 0;
         
         return {
             chain: chain.toUpperCase(),
@@ -54,6 +56,7 @@ async function main(params) {
                 { [metric]: metrics[metric] } : 
                 {
                     totalTransactions: metrics.totalTransactions,
+                    tps,
                     totalFees: metrics.totalFees,
                     averageTxCostEth: metrics.averageTxCostEth,
                     totalContractCreations: metrics.totalContractCreations,

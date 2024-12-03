@@ -124,11 +124,15 @@ async function getPeriodMetrics(startDate, endDate, prefix) {
         
         currentDate.setDate(currentDate.getDate() + 1);
     }
+
+    // Calculate period duration in seconds
+    const periodDuration = metrics.lastBlockTimestamp - metrics.firstBlockTimestamp;
     
     // Calculate period averages if we have data
     if (metrics.daysWithData > 0) {
         metrics.averages = {
             transactions: metrics.totalTransactions / metrics.daysWithData,
+            tps: periodDuration > 0 ? metrics.totalTransactions / periodDuration : 0,
             fees: metrics.totalFees / metrics.daysWithData,
             contractCreations: metrics.totalContractCreations / metrics.daysWithData,
             activeAddresses: metrics.activeAddresses / metrics.daysWithData,

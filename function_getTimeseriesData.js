@@ -57,6 +57,10 @@ function extractMetricValue(metrics, metricName) {
     switch(metricName) {
         case 'transactions':
             return metrics.totalTransactions;
+        case 'tps': {
+            const periodDuration = metrics.lastBlockTimestamp - metrics.firstBlockTimestamp;
+            return periodDuration > 0 ? metrics.totalTransactions / periodDuration : 0;
+        }
         case 'fees':
             return metrics.totalFees;
         case 'contractCreations':
