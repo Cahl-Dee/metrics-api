@@ -7,11 +7,11 @@ async function main(params) {
     } = params;
     
     const prefix = `MA_${chain.toUpperCase()}_`;
-
+    
     if(!days){
         days = 7;
     }
-    
+
     if (![7, 30, 90].includes(days)) {
         throw new Error('Days parameter must be 7, 30, or 90');
     }
@@ -51,4 +51,25 @@ async function main(params) {
         end: end.toISOString().split('T')[0],
         dataPoints
     };
+}
+
+function extractMetricValue(metrics, metricName) {
+    switch(metricName) {
+        case 'transactions':
+            return metrics.totalTransactions;
+        case 'fees':
+            return metrics.totalFees;
+        case 'contractCreations':
+            return metrics.totalContractCreations;
+        case 'activeAddresses':
+            return metrics.activeAddresses;
+        case 'averageTxCostEth':
+            return metrics.averageTxCostEth;
+        case 'averageFeesPerBlock':
+            return metrics.averageFeesPerBlock;
+        case 'successRate':
+            return metrics.successfulBlocks / (metrics.successfulBlocks + metrics.failedBlocksCount);
+        default:
+            throw new Error(`Unknown metric: ${metricName}`);
+    }
 }
