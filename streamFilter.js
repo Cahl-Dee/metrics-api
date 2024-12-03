@@ -1,5 +1,10 @@
 function main(params) {
-    const PREFIX = 'MA_ETH_';
+    // chain specific configs, adjust as needed
+    const chain = 'ETH';
+    const decimals = 18;
+
+    const PREFIX = `MA_${chain.toUpperCase()}_`;        // used to prefix set and list names
+    const WEI_PER_ETH = BigInt(10) ** BigInt(decimals); // wei = smallest unit of native asset | eth = native asset
     
     const block = params[0].block;
     const blockNumber = parseInt(block.number, 16);
@@ -51,7 +56,6 @@ function main(params) {
     
     // Store block metrics
     const blockMetricsKey = `${PREFIX}block_metrics_${blockNumber}`;
-    const WEI_PER_ETH = BigInt(10) ** BigInt(18);
     const blockMetrics = {
         timestamp: blockTimestamp,
         transactions: block.transactions.length,
