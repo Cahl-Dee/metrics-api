@@ -126,17 +126,17 @@ async function getPeriodMetrics(startDate, endDate, prefix) {
     }
 
     // Calculate period duration in seconds
-    const periodDuration = metrics.lastBlockTimestamp - metrics.firstBlockTimestamp;
+    const periodDuration = (endDate - startDate) / 1000;
     
     // Calculate period averages if we have data
     if (metrics.daysWithData > 0) {
         metrics.averages = {
-            transactions: metrics.totalTransactions / metrics.daysWithData,
+            transactionCount: metrics.totalTransactions / metrics.daysWithData,
             tps: periodDuration > 0 ? metrics.totalTransactions / periodDuration : 0,
-            fees: metrics.totalFees / metrics.daysWithData,
-            contractCreations: metrics.totalContractCreations / metrics.daysWithData,
-            activeAddresses: metrics.activeAddresses / metrics.daysWithData,
-            averageTxCostEth: metrics.totalTransactions > 0 ? 
+            totalFees: metrics.totalFees / metrics.daysWithData,
+            contractDeploymentCount: metrics.totalContractCreations / metrics.daysWithData,
+            activeAddressCount: metrics.activeAddresses / metrics.daysWithData,
+            averageTxCost: metrics.totalTransactions > 0 ? 
                 metrics.totalFees / metrics.totalTransactions : 0
         };
     }

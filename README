@@ -4,6 +4,18 @@ A demonstreation of how to create a blockchain data analytics api with only Quic
 
 ---
 
+## Available Metrics:
+
+- transactionCount: number of transactions
+- tps: trasnactions that happened per second (not available in block data)
+- averageTxCost: total fees / transaction count in native asset (i.e Ether on Ethereum)
+- totalFees: total fees spent in native asset (i.e Ether on Ethereum)
+- contractDeploymentCount: contracts deployed
+- activeAddressCount: addreses that sent a transaction based on the "from" address (not available in block data)
+- averageFeesPerBlock: total fees within block range / block count
+
+---
+
 ## Requirements for Metrics API
 
 ### general

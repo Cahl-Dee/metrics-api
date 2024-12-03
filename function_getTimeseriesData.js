@@ -55,24 +55,22 @@ async function main(params) {
 
 function extractMetricValue(metrics, metricName) {
     switch(metricName) {
-        case 'transactions':
+        case 'transactionCount':
             return metrics.totalTransactions;
         case 'tps': {
-            const periodDuration = metrics.lastBlockTimestamp - metrics.firstBlockTimestamp;
+            const periodDuration = 86000 * days;
             return periodDuration > 0 ? metrics.totalTransactions / periodDuration : 0;
         }
-        case 'fees':
+        case 'totalFees':
             return metrics.totalFees;
-        case 'contractCreations':
+        case 'contractDeploymentCount':
             return metrics.totalContractCreations;
-        case 'activeAddresses':
+        case 'activeAddressCount':
             return metrics.activeAddresses;
-        case 'averageTxCostEth':
+        case 'averageTxCost':
             return metrics.averageTxCostEth;
         case 'averageFeesPerBlock':
             return metrics.averageFeesPerBlock;
-        case 'successRate':
-            return metrics.successfulBlocks / (metrics.successfulBlocks + metrics.failedBlocksCount);
         default:
             throw new Error(`Unknown metric: ${metricName}`);
     }
