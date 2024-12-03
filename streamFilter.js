@@ -108,8 +108,8 @@ function main(params) {
                 completedDate: prevBlockDate,
                 metrics: dayMetrics
             };
-            console.log(logObj);
-            return null;
+            // use this when testing
+            // return logObj;
         }
     }
     
@@ -118,7 +118,9 @@ function main(params) {
         blockDate,
         status: 'block_processed'
     };
-    console.log(logObj);
+    // use this when testing
+    // return logObj;
+
     return null;
 }
 
