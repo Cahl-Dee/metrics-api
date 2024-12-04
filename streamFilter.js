@@ -28,12 +28,13 @@ function main(params) {
     // Calculate block metrics
     let blockFeesWei = BigInt(0);
     const contractDeployments = new Set();
+    const activeAddresses = new Set();
     
     // Process transactions
     for (const tx of block.transactions) {
         // Track active addresses
         if (tx.from) {
-            qnAddListItem(`${PREFIX}addresses_${blockDate}`, tx.from.toLowerCase());
+            activeAddresses.add(tx.from.toLowerCase());
         }
         
         // Calculate fees
@@ -45,6 +46,8 @@ function main(params) {
             console.error(`Error calculating fees for tx ${tx.hash} in block ${blockNumber}: ${e.message}`);
         }
     }
+    // Add active addresses in a single upsert
+    qnUpsertList(`${PREFIX}addresses_${blockDate}`, { add_items: activeAddresses });
     
     // Check receipts for contract deployments
     if (block.receipts) {
@@ -104,9 +107,12 @@ function main(params) {
             qnDeleteList(`${PREFIX}addresses_${prevBlockDate}`);
             
             // Clean up block metrics
+            const setsForDeletion = [];
             for (const blockNum of prevDayBlocks) {
+                setsForDeletion.push(`${PREFIX}block_metrics_${blockNum}`);
                 qnDeleteSet(`${PREFIX}block_metrics_${blockNum}`);
             }
+            qnBulkSets({ delete_sets: setsForDeletion });
             
             const logObj = {
                 blockNumber,
