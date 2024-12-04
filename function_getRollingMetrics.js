@@ -1,16 +1,12 @@
 async function getRollingMetrics(params) {
     const {
-        days,          // 7, 30, or 90 | optional, defaults to 7
+        days = 7,          // 7, 30, or 90 | optional, defaults to 7
         metric,        // specific metric name or 'all'
         chain = 'ETH', // optional, defaults to ETH
         date,          // optional specific date, defaults to most recent
     } = params;
     
     const prefix = `MA_${chain.toUpperCase()}_`;
-    
-    if(!days){
-        days = 7;
-    }
     
     if (![7, 30, 90].includes(days)) {
         throw new Error('Days parameter must be 7, 30, or 90');
