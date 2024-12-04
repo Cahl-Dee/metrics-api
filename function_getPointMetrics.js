@@ -31,6 +31,7 @@ async function main(params) {
                 type: 'block',
                 blockNumber,
                 timestamp: blockMetrics.timestamp,
+                date: blockMetrics.date,
                 metrics: metric && metric !== 'all' ? 
                     { [metric]: blockMetrics[metric] } : 
                     {
@@ -42,27 +43,8 @@ async function main(params) {
             };
         }
         
-        // Handle date-based or latest metrics
-        let targetDate = date;
-        
-        if (!date) {
-            // Get the latest processed block
-            const lastProcessedBlock = await qnGetSet(`${prefix}last_processed_block`);
-            if (!lastProcessedBlock) {
-                throw new Error('No processed blocks found');
-            }
-            
-            // Get the date for this block
-            const blockDate = await qnGetSet(`${prefix}block_date_${lastProcessedBlock}`);
-            if (!blockDate) {
-                throw new Error('Date mapping not found for latest block');
-            }
-            
-            targetDate = blockDate;
-        }
-        
         // Get daily metrics
-        const dailyMetricsStr = await qnGetSet(`${prefix}metrics_${targetDate}`);
+        const dailyMetricsStr = await qnGetSet(`${prefix}metrics_${date}`);
         if (!dailyMetricsStr) {
             throw new Error('No metrics found for specified date');
         }
@@ -74,7 +56,7 @@ async function main(params) {
         return {
             chain: chain.toLowerCase(),
             type: 'day',
-            date: targetDate,
+            date,
             blockRange: {
                 first: metrics.firstBlock,
                 last: metrics.lastBlock

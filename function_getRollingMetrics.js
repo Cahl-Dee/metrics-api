@@ -27,12 +27,14 @@ async function getRollingMetrics(params) {
             throw new Error('No processed blocks found');
         }
         
-        const blockDate = await qnGetSet(`${prefix}block_date_${lastProcessedBlock}`);
-        if (!blockDate) {
-            throw new Error('Date mapping not found for latest block');
+        // Get block metrics to find its date
+        const blockMetricsStr = await qnGetSet(`${prefix}block_metrics_${lastProcessedBlock}`);
+        if (!blockMetricsStr) {
+            throw new Error('Metrics not found for latest block');
         }
         
-        targetDate = blockDate;
+        const blockMetrics = JSON.parse(blockMetricsStr);
+        targetDate = blockMetrics.date;
     }
     
     const end = new Date(targetDate);
@@ -49,7 +51,7 @@ async function getRollingMetrics(params) {
         const previousPeriod = await getPeriodMetrics(prevStart, prevEnd, prefix);
         
         const results = {
-            chain: chain.toUpperCase(),
+            chain: chain.toLowerCase(),
             period: `${days}d`,
             currentPeriod: {
                 start: start.toISOString().split('T')[0],

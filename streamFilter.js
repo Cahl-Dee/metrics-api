@@ -58,6 +58,7 @@ function main(params) {
     const blockMetricsKey = `${PREFIX}block_metrics_${blockNumber.toString()}`;
     const blockMetrics = {
         timestamp: blockTimestamp,
+        date: blockDate,
         transactions: block.transactions.length,
         fees: Number(blockFeesWei) / Number(WEI_PER_ETH),
         contractDeployments: contractDeployments.size
@@ -67,7 +68,6 @@ function main(params) {
     // Mark block as processed
     qnAddListItem(processedBlocksKey, blockNumber.toString());
     qnAddListItem(`${PREFIX}blocks_${blockDate}`, blockNumber.toString());
-    qnAddSet(`${PREFIX}block_date_${blockNumber.toString()}`, blockDate);
     
     // Check previous block's date
     const prevBlockNumber = blockNumber - 1;
@@ -98,7 +98,6 @@ function main(params) {
             // Clean up block metrics
             for (const blockNum of prevDayBlocks) {
                 qnDeleteSet(`${PREFIX}block_metrics_${blockNum}`);
-                qnDeleteSet(`${PREFIX}block_date_${blockNum}`);
             }
             
             const logObj = {
