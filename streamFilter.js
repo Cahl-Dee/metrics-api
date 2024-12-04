@@ -1,4 +1,6 @@
 function main(params) {
+    const simulateOnly = true; // Set to true to simulate processing without writing to KV store, then add returns with data
+
     // chain specific configs, adjust as needed
     const chain = 'ETH';
     const decimals = 18;
@@ -48,7 +50,7 @@ function main(params) {
         }
     }
     // Add active addresses in a single upsert
-    qnUpsertList(`${PREFIX}addresses_${blockDate}`, { add_items: activeAddresses });
+    if(!simulateOnly) qnUpsertList(`${PREFIX}addresses_${blockDate}`, { add_items: activeAddresses });
     
     // Check receipts for contract deployments
     if (receipts) {
@@ -69,11 +71,11 @@ function main(params) {
         contractDeployments: contractDeployments.size,
         lastUpdated
     };
-    qnAddSet(blockMetricsKey, JSON.stringify(blockMetrics));
+    if(!simulateOnly) qnAddSet(blockMetricsKey, JSON.stringify(blockMetrics));
     
     // Mark block as processed
-    qnAddListItem(processedBlocksKey, blockNumber.toString());
-    qnAddListItem(`${PREFIX}blocks_${blockDate}`, blockNumber.toString());
+    if(!simulateOnly) qnAddListItem(processedBlocksKey, blockNumber.toString());
+    if(!simulateOnly) qnAddListItem(`${PREFIX}blocks_${blockDate}`, blockNumber.toString());
     
     // Check previous block's date
     const prevBlockNumber = blockNumber - 1;
@@ -101,19 +103,18 @@ function main(params) {
             
             // Store final metrics
             dayMetrics.lastUpdated = lastUpdated;
-            qnAddSet(`${PREFIX}metrics_${prevBlockDate}`, JSON.stringify(dayMetrics));
+            if(!simulateOnly) qnAddSet(`${PREFIX}metrics_${prevBlockDate}`, JSON.stringify(dayMetrics));
             
             // Cleanup temporary data
-            qnDeleteList(`${PREFIX}blocks_${prevBlockDate}`);
-            qnDeleteList(`${PREFIX}addresses_${prevBlockDate}`);
+            if(!simulateOnly) qnDeleteList(`${PREFIX}blocks_${prevBlockDate}`);
+            if(!simulateOnly) qnDeleteList(`${PREFIX}addresses_${prevBlockDate}`);
             
             // Clean up block metrics
             const setsForDeletion = [];
             for (const blockNum of prevDayBlocks) {
                 setsForDeletion.push(`${PREFIX}block_metrics_${blockNum}`);
-                qnDeleteSet(`${PREFIX}block_metrics_${blockNum}`);
             }
-            qnBulkSets({ delete_sets: setsForDeletion });
+            if(!simulateOnly) qnBulkSets({ delete_sets: setsForDeletion });
             
             const logObj = {
                 blockNumber,
