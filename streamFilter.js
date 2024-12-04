@@ -7,6 +7,7 @@ function main(params) {
     const WEI_PER_ETH = BigInt(10) ** BigInt(decimals); // wei = smallest unit of native asset | eth = native asset
     
     const block = params.data ? params.data[0].block : params[0].block;
+    const receipts = params.data ? params.data[0].receipts : params[0].receipts;
     const blockNumber = parseInt(block.number, 16);
     const blockTimestamp = parseInt(block.timestamp, 16);
     const blockDate = new Date(blockTimestamp * 1000).toISOString().split('T')[0];
@@ -50,8 +51,8 @@ function main(params) {
     qnUpsertList(`${PREFIX}addresses_${blockDate}`, { add_items: activeAddresses });
     
     // Check receipts for contract deployments
-    if (block.receipts) {
-        for (const receipt of block.receipts) {
+    if (receipts) {
+        for (const receipt of receipts) {
             if (receipt.contractAddress) {
                 contractDeployments.add(receipt.contractAddress);
             }
