@@ -10,7 +10,8 @@ function main(params) {
     const blockNumber = parseInt(block.number, 16);
     const blockTimestamp = parseInt(block.timestamp, 16);
     const blockDate = new Date(blockTimestamp * 1000).toISOString().split('T')[0];
-    
+    const lastUpdated = new Date().toISOString();
+
     // Check if already processed
     const processedBlocksKey = `${PREFIX}processed_blocks`;
     const processedBlocks = qnGetList(processedBlocksKey);
@@ -61,7 +62,8 @@ function main(params) {
         date: blockDate,
         transactions: block.transactions.length,
         fees: Number(blockFeesWei) / Number(WEI_PER_ETH),
-        contractDeployments: contractDeployments.size
+        contractDeployments: contractDeployments.size,
+        lastUpdated
     };
     qnAddSet(blockMetricsKey, JSON.stringify(blockMetrics));
     
@@ -94,6 +96,7 @@ function main(params) {
             const dayMetrics = calculateDayMetrics(prevBlockDate, prevDayBlocks, PREFIX);
             
             // Store final metrics
+            dayMetrics.lastUpdated = lastUpdated;
             qnAddSet(`${PREFIX}metrics_${prevBlockDate}`, JSON.stringify(dayMetrics));
             
             // Cleanup temporary data
@@ -138,6 +141,7 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
     let lastBlockTimestamp = null;
     let successfulBlocks = 0;
     let failedBlocks = [];
+    const lastUpdated = new Date().toISOString();
     
     // Process each block in the day
     for (const blockNumber of blockNumbers) {
@@ -206,7 +210,7 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
         firstBlockTimestamp,
         lastBlockTimestamp,
         isComplete: true,
-        updatedAt: Math.floor(Date.now() / 1000)
+        lastUpdated
     };
     
     logProcessingResults(date, metrics, failedBlocks);
