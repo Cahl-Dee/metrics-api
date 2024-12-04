@@ -141,3 +141,8 @@ async function getPeriodMetrics(startDate, endDate, prefix) {
     
     return metrics;
 }
+
+function calculateChange(current, previous) {
+    if (!previous) return current ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+}
