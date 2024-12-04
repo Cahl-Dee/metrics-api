@@ -55,7 +55,7 @@ function main(params) {
     }
     
     // Store block metrics
-    const blockMetricsKey = `${PREFIX}block_metrics_${blockNumber}`;
+    const blockMetricsKey = `${PREFIX}block_metrics_${blockNumber.toString()}`;
     const blockMetrics = {
         timestamp: blockTimestamp,
         transactions: block.transactions.length,
@@ -67,11 +67,11 @@ function main(params) {
     // Mark block as processed
     qnAddListItem(processedBlocksKey, blockNumber.toString());
     qnAddListItem(`${PREFIX}blocks_${blockDate}`, blockNumber.toString());
-    qnAddSet(`${PREFIX}block_date_${blockNumber}`, blockDate);
+    qnAddSet(`${PREFIX}block_date_${blockNumber.toString()}`, blockDate);
     
     // Check previous block's date
     const prevBlockNumber = blockNumber - 1;
-    const prevBlockDate = qnGetSet(`${PREFIX}block_date_${prevBlockNumber}`);
+    const prevBlockDate = qnGetSet(`${PREFIX}block_date_${prevBlockNumber.toString()}`);
     
     // If previous block was in a different day
     if (prevBlockDate && prevBlockDate !== blockDate) {
