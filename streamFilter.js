@@ -6,7 +6,7 @@ function main(params) {
     const PREFIX = `MA_${chain.toUpperCase()}_`;        // used to prefix set and list names
     const WEI_PER_ETH = BigInt(10) ** BigInt(decimals); // wei = smallest unit of native asset | eth = native asset
     
-    const block = Array.isArray(params) ? params[0].block : params.block;
+    const block = params.data ? params.data[0].block : params[0].block;
     const blockNumber = parseInt(block.number, 16);
     const blockTimestamp = parseInt(block.timestamp, 16);
     const blockDate = new Date(blockTimestamp * 1000).toISOString().split('T')[0];
