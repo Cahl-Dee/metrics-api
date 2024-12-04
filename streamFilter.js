@@ -71,7 +71,12 @@ function main(params) {
     
     // Check previous block's date
     const prevBlockNumber = blockNumber - 1;
-    const prevBlockDate = qnGetSet(`${PREFIX}block_date_${prevBlockNumber.toString()}`);
+    const prevBlockMetricsStr = qnGetSet(`${PREFIX}block_metrics_${prevBlockNumber.toString()}`);
+    let prevBlockDate;
+    if (prevBlockMetricsStr) {
+        const prevBlockMetrics = JSON.parse(prevBlockMetricsStr);
+        prevBlockDate = prevBlockMetrics.date;
+    }
     
     // If previous block was in a different day
     if (prevBlockDate && prevBlockDate !== blockDate) {
