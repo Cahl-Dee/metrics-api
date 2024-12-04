@@ -199,6 +199,7 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
     // Calculate averages
     const averageTxCostEth = totalTransactions > 0 ? totalFeesEth / totalTransactions : 0;
     const averageFeesPerBlock = successfulBlocks > 0 ? totalFeesEth / successfulBlocks : 0;
+    const averageBlockTime = (lastBlockTimestamp - firstBlockTimestamp) / (lastBlock - firstBlock);
     
     const metrics = {
         date,
@@ -216,6 +217,7 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
         lastBlock,
         firstBlockTimestamp,
         lastBlockTimestamp,
+        averageBlockTime,
         isComplete: true,
         lastUpdated
     };
