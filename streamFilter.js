@@ -75,8 +75,10 @@ function main(params) {
     }
     // Add active addresses in a single upsert
     if(!simulateOnly) {
-        qnUpsertList(keys.dailyAddresses(blockDate), { add_items: activeAddresses });
+        qnUpsertList(keys.dailyAddresses(blockDate), { add_items: Array.from(activeAddresses) });
     }
+    // use this when testing - console logging will be added in future versions, for now we need to return the object
+    // return activeAddresses;
     
     // Store block metrics
     const blockMetrics = {
