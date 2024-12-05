@@ -1,15 +1,27 @@
 function main(params) {
     const simulateOnly = true; // Set to true to simulate processing without writing to KV store, then add returns with data
 
-    // chain specific configs, adjust as needed
+    // Chain specific configs, adjust as needed
     const chain = 'ETH';
     const decimals = 18;
+    const hasDebugTrace = true;
+
+    if (params.metadata && params.metadata.dataset && hasDebugTrace && params.metadata.dataset != 'block_with_receipts_debug_trace') {
+        return { error: 'Unexpected dataset, expected block_with_receipts_debug_trace' }
+    }
+    if (params.metadata && params.metadata.dataset && !hasDebugTrace && params.metadata.dataset != 'block_with_receipts') {
+        return { error: 'Unexpected dataset, expected block_with_receipts' }
+    }
 
     const PREFIX = `MA_${chain.toUpperCase()}_`;        // used to prefix set and list names
     const WEI_PER_ETH = BigInt(10) ** BigInt(decimals); // wei = smallest unit of native asset | eth = native asset
     
-    const block = params.data ? params.data[0].block : params[0].block;
-    const receipts = params.data ? params.data[0].receipts : params[0].receipts;
+    // Extract top level data
+    const data = params.data ? params.data[0] : params[0];
+    const block = data.block;
+    const receipts = data.receipts;
+    const trace = hasDebugTrace ? data.trace : null;
+
     const blockNumber = parseInt(block.number, 16);
     const blockTimestamp = parseInt(block.timestamp, 16);
     const blockDate = new Date(blockTimestamp * 1000).toISOString().split('T')[0];
@@ -30,7 +42,7 @@ function main(params) {
     
     // Calculate block metrics
     let blockFeesWei = BigInt(0);
-    const contractDeployments = new Set();
+    const contractDeploymentCount = countContractDeployments(receipts, hasDebugTrace ? trace : null);
     const activeAddresses = new Set();
     
     // Process transactions
@@ -52,15 +64,6 @@ function main(params) {
     // Add active addresses in a single upsert
     if(!simulateOnly) qnUpsertList(`${PREFIX}addresses_${blockDate}`, { add_items: activeAddresses });
     
-    // Check receipts for contract deployments
-    if (receipts) {
-        for (const receipt of receipts) {
-            if (receipt.contractAddress) {
-                contractDeployments.add(receipt.contractAddress);
-            }
-        }
-    }
-    
     // Store block metrics
     const blockMetricsKey = `${PREFIX}block_metrics_${blockNumber.toString()}`;
     const blockMetrics = {
@@ -68,10 +71,12 @@ function main(params) {
         date: blockDate,
         transactions: block.transactions.length,
         fees: Number(blockFeesWei) / Number(WEI_PER_ETH),
-        contractDeployments: contractDeployments.size,
+        contractDeploymentsTotal: contractDeploymentCount,
+        contractDeploymentCoverage: hasDebugTrace ? 'full' : 'partial',
         lastUpdated
     };
     if(!simulateOnly) qnAddSet(blockMetricsKey, JSON.stringify(blockMetrics));
+    // return blockMetrics;
     
     // Mark block as processed
     if(!simulateOnly) qnAddListItem(processedBlocksKey, blockNumber.toString());
@@ -99,7 +104,7 @@ function main(params) {
         
         if (isComplete) {
             // Process the completed day
-            const dayMetrics = calculateDayMetrics(prevBlockDate, prevDayBlocks, PREFIX);
+            const dayMetrics = calculateDayMetrics(prevBlockDate, prevDayBlocks, PREFIX, hasDebugTrace);
             
             // Store final metrics
             dayMetrics.lastUpdated = lastUpdated;
@@ -139,7 +144,7 @@ function main(params) {
     return null;
 }
 
-function calculateDayMetrics(date, blockNumbers, prefix) {
+function calculateDayMetrics(date, blockNumbers, prefix, hasDebugTrace) {
     let totalTransactions = 0;
     let totalFeesEth = 0;
     let totalContractCreations = 0;
@@ -177,7 +182,7 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
             
             totalTransactions += blockMetrics.transactions;
             totalFeesEth += blockMetrics.fees;
-            totalContractCreations += blockMetrics.contractDeployments;
+            totalContractCreations += blockMetrics.contractDeploymentsTotal;
             successfulBlocks++;
             
         } catch (e) {
@@ -213,6 +218,7 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
         averageTxCostEth,
         averageFeesPerBlock,
         totalContractCreations,
+        contractDeploymentCoverage: hasDebugTrace ? 'full' : 'partial',
         activeAddresses,
         firstBlock,
         lastBlock,
@@ -226,6 +232,35 @@ function calculateDayMetrics(date, blockNumbers, prefix) {
     logProcessingResults(date, metrics, failedBlocks);
     
     return metrics;
+}
+
+function countContractDeployments(receipts, traces) {
+    let deploymentCount = 0;
+
+    if (traces) {
+        const processTrace = (traceItem) => {
+            // Normalize item structure regardless of top level or call
+            const item = traceItem.result ? traceItem.result : traceItem;
+
+            if (item.type && (item.type === 'CREATE' || item.type === 'CREATE2')) deploymentCount++;
+            
+            // Process nested calls within
+            if (item.calls) {
+                item.calls.forEach(call => {
+                    processTrace(call);
+                });
+            }
+        };
+
+        // Process each trace entry
+        traces.forEach(processTrace);
+
+    } else if (receipts) {
+        // If no trace available, count receipts with contract addresses
+        deploymentCount = receipts.filter(receipt => receipt.contractAddress).length;
+    }
+
+    return deploymentCount;
 }
 
 function logProcessingResults(date, metrics, failedBlocks) {
