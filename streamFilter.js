@@ -31,12 +31,14 @@ function main(params) {
     const processedBlocksKey = `${PREFIX}processed_blocks`;
     const processedBlocks = qnGetList(processedBlocksKey);
     if (processedBlocks.includes(blockNumber.toString())) {
-        const logObj = {
-            blockNumber,
-            blockDate,
-            status: 'already_processed'
-        };
-        console.log(logObj);
+        // use this when testing - console logging will be added in future versions, for now we need to return the object
+        // const logObj = {
+        //     blockNumber,
+        //     blockDate,
+        //     status: 'already_processed'
+        // };
+        // // return logObj;
+
         return null;
     }
     
@@ -76,6 +78,7 @@ function main(params) {
         lastUpdated
     };
     if(!simulateOnly) qnAddSet(blockMetricsKey, JSON.stringify(blockMetrics));
+    // use this when testing - console logging will be added in future versions, for now we need to return the object
     // return blockMetrics;
     
     // Mark block as processed
@@ -121,24 +124,24 @@ function main(params) {
             }
             if(!simulateOnly) qnBulkSets({ delete_sets: setsForDeletion });
             
-            const logObj = {
-                blockNumber,
-                blockDate,
-                status: 'day_completed',
-                completedDate: prevBlockDate,
-                metrics: dayMetrics
-            };
-            // use this when testing
+            // use this when testing - console logging will be added in future versions, for now we need to return the object
+            // const logObj = {
+            //     blockNumber,
+            //     blockDate,
+            //     status: 'day_completed',
+            //     completedDate: prevBlockDate,
+            //     metrics: dayMetrics
+            // };
             // return logObj;
         }
     }
     
-    const logObj = {
-        blockNumber,
-        blockDate,
-        status: 'block_processed'
-    };
-    // use this when testing
+    // use this when testing - console logging will be added in future versions, for now we need to return the object
+    // const logObj = {
+    //     blockNumber,
+    //     blockDate,
+    //     status: 'block_processed'
+    // };
     // return logObj;
 
     return null;
@@ -229,7 +232,8 @@ function calculateDayMetrics(date, blockNumbers, prefix, hasDebugTrace) {
         lastUpdated
     };
     
-    logProcessingResults(date, metrics, failedBlocks);
+    // use this when testing - console logging will be added in future versions, for now we need to return the object
+    // return getProcessingResults(date, metrics, failedBlocks);
     
     return metrics;
 }
@@ -263,8 +267,8 @@ function countContractDeployments(receipts, traces) {
     return deploymentCount;
 }
 
-function logProcessingResults(date, metrics, failedBlocks) {
-    // Format failed blocks for logging
+function getProcessingResults(date, metrics, failedBlocks) {
+    // Format failed blocks
     let failedBlocksLog = '';
     if (failedBlocks.length > 0) {
         const numFailedBlocksToDisplay = Math.min(failedBlocks.length, 10);
@@ -280,7 +284,7 @@ function logProcessingResults(date, metrics, failedBlocks) {
         }
     }
     
-    console.log({
+    const results = {
         date,
         processingResults: {
             totalBlocks: metrics.blockCount,
@@ -292,5 +296,7 @@ function logProcessingResults(date, metrics, failedBlocks) {
         },
         metrics,
         failedBlocks: failedBlocksLog || 'No failed blocks'
-    });
+    };
+
+    return results;
 }
