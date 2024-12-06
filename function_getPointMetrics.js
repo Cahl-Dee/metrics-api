@@ -71,9 +71,9 @@ function getScopedMetrics(metrics, metric, tps) {
     return {
         numTransactions: metrics.numTransactions,
         tps,
-        avgTxFee: metrics.avgTxFeeEth,
-        totalFees: metrics.totalFeesEth,
-        avgBlockFees: metrics.avgBlockFeesEth,
+        avgTxFee: metrics.avgTxFee,
+        totalFees: metrics.totalFees,
+        avgBlockFees: metrics.avgBlockFees,
         numContractDeployments: metrics.numContractDeployments,
         contractDeploymentCoverage: metrics.contractDeploymentCoverage,
         numActiveAddresses: metrics.numActiveAddresses,
