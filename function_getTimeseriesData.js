@@ -7,11 +7,11 @@ async function main(params) {
         chain = 'ETH',    // string            | optional, defaults to ETH
         date,             // YYYY-MM-DD string | optional, defaults to latest
         metric,           // string            | required specific metric name
-        days = 7         // number            | 7, 30, or 90
+        days = 7          // number            | optional, defaults to 7, max: 90
     } = params.user_data;
 
-    if (![7, 30, 90].includes(days)) {
-        throw new Error('Days parameter must be 7, 30, or 90');
+    if (days <= 1 || days >= 90 || days % 1 !== 0) {
+        throw new Error('Days must be a whole number between 1 and 90');
     }
     
     if (!metric) {
