@@ -58,7 +58,10 @@ function main(params) {
     const activeAddresses = new Set();
     
     // Process transactions
-    for (const tx of block.transactions) {
+    for (let i = 0; i < block.transactions.length; i++) {
+        const tx = block.transactions[i];
+        const receipt = receipts[i];
+        
         // Track active addresses
         if (tx.from) {
             activeAddresses.add(tx.from.toLowerCase());
@@ -66,7 +69,7 @@ function main(params) {
         
         // Calculate fees
         try {
-            const gasUsed = BigInt(tx.gas);
+            const gasUsed = BigInt(receipt.gasUsed);    // Actual gas used from receipt
             const gasPrice = BigInt(tx.gasPrice);
             totalFeesWei += gasUsed * gasPrice;
         } catch (e) {
