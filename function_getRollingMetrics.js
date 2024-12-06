@@ -1,38 +1,46 @@
-async function getRollingMetrics(params) {
+async function main(params) {
+    if (!params?.user_data) {
+        params.user_data = {};
+    }
+
     const {
-        days = 7,          // 7, 30, or 90 | optional, defaults to 7
-        metric,        // specific metric name or 'all'
-        chain = 'ETH', // optional, defaults to ETH
-        date,          // optional specific date, defaults to most recent
-    } = params;
-    
+        chain = 'ETH',  // string            | optional, defaults to ETH
+        date,           // YYYY-MM-DD string | optional, defaults to latest
+        metric = 'all', // string            | specific metric or 'all', dafaults to all
+        days = 7        // number            | 7, 30, or 90
+    } = params.user_data;
+
     const prefix = `MA_${chain.toUpperCase()}_`;
+    const dailyMetricsPrefix = `${prefix}daily-metrics_`;
     
-    if (![7, 30, 90].includes(days)) {
-        throw new Error('Days parameter must be 7, 30, or 90');
-    }
-    
-    // Get target date
-    let targetDate;
-    if (date) {
-        targetDate = date;
-    } else {
-        // Get the latest processed block
-        const lastProcessedBlock = await qnGetSet(`${prefix}last_processed_block`);
-        if (!lastProcessedBlock) {
-            throw new Error('No processed blocks found');
-        }
+    try {
+        const targetDate = date ? date : await getLatestProcessedDate(dailyMetricsPrefix);
+        const { start, end, prevStart, prevEnd } = calculateDateRanges(targetDate, days);
         
-        // Get block metrics to find its date
-        const blockMetricsStr = await qnGetSet(`${prefix}block_metrics_${lastProcessedBlock}`);
-        if (!blockMetricsStr) {
-            throw new Error('Metrics not found for latest block');
-        }
+        const currentPeriodMetrics = await getPeriodMetrics(start, end, dailyMetricsPrefix);
+        const previousPeriodMetrics = await getPeriodMetrics(prevStart, prevEnd, dailyMetricsPrefix);
         
-        const blockMetrics = JSON.parse(blockMetricsStr);
-        targetDate = blockMetrics.date;
+        return formatResponse(chain, days, start, end, prevStart, prevEnd, currentPeriodMetrics, previousPeriodMetrics, metric);
+    } catch (e) {
+        throw new Error(`Failed to retrieve rolling metrics: ${e.message}`);
     }
-    
+}
+
+async function getLatestProcessedDate(dailyMetricsPrefix) {
+    const sets = await qnLib.qnListAllSets();
+    const dates = sets
+        .filter(set => set.startsWith(dailyMetricsPrefix))
+        .map(set => set.slice(-10))
+        .sort();
+
+    if (!dates.length) {
+        throw new Error('No metrics data available');
+    }
+
+    return dates[dates.length - 1];
+}
+
+function calculateDateRanges(targetDate, days) {
     const end = new Date(targetDate);
     end.setUTCHours(0, 0, 0, 0);
     const start = new Date(end);
@@ -41,79 +49,45 @@ async function getRollingMetrics(params) {
     const prevEnd = new Date(start);
     const prevStart = new Date(prevEnd);
     prevStart.setDate(prevStart.getDate() - days);
-    
-    try {
-        const currentPeriod = await getPeriodMetrics(start, end, prefix);
-        const previousPeriod = await getPeriodMetrics(prevStart, prevEnd, prefix);
-        
-        const results = {
-            chain: chain.toLowerCase(),
-            period: `${days}d`,
-            currentPeriod: {
-                start: start.toISOString().split('T')[0],
-                end: end.toISOString().split('T')[0]
-            },
-            previousPeriod: {
-                start: prevStart.toISOString().split('T')[0],
-                end: prevEnd.toISOString().split('T')[0]
-            },
-            metrics: {},
-            daysWithData: {
-                current: currentPeriod.daysWithData,
-                previous: previousPeriod.daysWithData
-            }
-        };
-        
-        if (metric && metric !== 'all') {
-            results.metrics[metric] = {
-                current: currentPeriod.averages[metric] || 0,
-                previous: previousPeriod.averages[metric] || 0,
-                change: calculateChange(
-                    currentPeriod.averages[metric],
-                    previousPeriod.averages[metric]
-                )
-            };
-        } else {
-            for (const [key, value] of Object.entries(currentPeriod.averages)) {
-                results.metrics[key] = {
-                    current: value,
-                    previous: previousPeriod.averages[key] || 0,
-                    change: calculateChange(value, previousPeriod.averages[key])
-                };
-            }
-        }
-        
-        return results;
-        
-    } catch (e) {
-        console.error(`Error retrieving rolling metrics: ${e.message}`);
-        throw e;
-    }
+
+    return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+        prevStart: prevStart.toISOString().split('T')[0],
+        prevEnd: prevEnd.toISOString().split('T')[0]
+    };
 }
 
 async function getPeriodMetrics(startDate, endDate, prefix) {
     const metrics = {
-        totalTransactions: 0,
+        numTransactions: 0,
         totalFees: 0,
-        totalContractCreations: 0,
-        activeAddresses: 0,
-        daysWithData: 0,
-        averages: {}
+        numContractDeployments: 0,
+        contractDeploymentCoverage: 'partial',
+        numActiveAddresses: 0,
+        totalBlockTime: 0,
+        numBlocks: 0,
+        daysWithData: 0
     };
     
     let currentDate = new Date(startDate);
+    const end = new Date(endDate);
     
-    while (currentDate <= endDate) {
+    while (currentDate <= end) {
         const dateStr = currentDate.toISOString().split('T')[0];
         try {
-            const dayMetricsStr = await qnGetSet(`${prefix}metrics_${dateStr}`);
+            const dayMetricsStr = await qnLib.qnGetSet(`${prefix}${dateStr}`);
             
             if (dayMetricsStr) {
                 const dayMetrics = JSON.parse(dayMetricsStr);
-                metrics.totalTransactions += dayMetrics.totalTransactions;
-                metrics.totalFees += dayMetrics.totalFees;
-                metrics.totalContractCreations += dayMetrics.totalContractCreations;
-                metrics.activeAddresses += dayMetrics.activeAddresses;
+                metrics.numTransactions += dayMetrics.metrics.numTransactions;
+                metrics.totalFees += dayMetrics.metrics.totalFees;
+                metrics.numContractDeployments += dayMetrics.metrics.numContractDeployments;
+                metrics.contractDeploymentCoverage = dayMetrics.metrics.contractDeploymentCoverage;
+                metrics.numActiveAddresses += dayMetrics.metrics.numActiveAddresses;
+                metrics.totalBlockTime += dayMetrics.metrics.avgBlockTime * 
+                    (dayMetrics.metadata.lastBlock - dayMetrics.metadata.firstBlock);
+                metrics.numBlocks += dayMetrics.metadata.lastBlock - dayMetrics.metadata.firstBlock;
                 metrics.daysWithData++;
             }
         } catch (e) {
@@ -123,23 +97,66 @@ async function getPeriodMetrics(startDate, endDate, prefix) {
         currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Calculate period duration in seconds
-    const periodDuration = (endDate - startDate) / 1000;
+    return calculateAverages(metrics);
+}
+
+function calculateAverages(metrics) {
+    if (metrics.daysWithData === 0) return { metrics: {} };
+
+    const avgDailyTransactions = metrics.numTransactions / metrics.daysWithData;
     
-    // Calculate period averages if we have data
-    if (metrics.daysWithData > 0) {
-        metrics.averages = {
-            transactionCount: metrics.totalTransactions / metrics.daysWithData,
-            tps: periodDuration > 0 ? metrics.totalTransactions / periodDuration : 0,
+    return {
+        metrics: {
+            numTransactions: avgDailyTransactions,
+            tps: avgDailyTransactions / 86400,
+            avgTxFee: metrics.totalFees / metrics.numTransactions,
             totalFees: metrics.totalFees / metrics.daysWithData,
-            contractDeploymentCount: metrics.totalContractCreations / metrics.daysWithData,
-            activeAddressCount: metrics.activeAddresses / metrics.daysWithData,
-            averageTxCost: metrics.totalTransactions > 0 ? 
-                metrics.totalFees / metrics.totalTransactions : 0
+            avgBlockFees: metrics.totalFees / metrics.numBlocks,
+            numContractDeployments: metrics.numContractDeployments / metrics.daysWithData,
+            contractDeploymentCoverage: metrics.contractDeploymentCoverage,
+            numActiveAddresses: metrics.numActiveAddresses / metrics.daysWithData,
+            avgBlockTime: metrics.totalBlockTime / metrics.numBlocks
+        },
+        daysWithData: metrics.daysWithData
+    };
+}
+
+function formatResponse(chain, days, start, end, prevStart, prevEnd, currentPeriod, previousPeriod, metric) {
+    const response = {
+        chain: chain.toLowerCase(),
+        period: `${days}d`,
+        currentPeriod: { start, end },
+        previousPeriod: { start: prevStart, end: prevEnd },
+        daysWithData: {
+            current: currentPeriod.daysWithData,
+            previous: previousPeriod.daysWithData
+        }
+    };
+
+    response.metrics = getScopedMetrics(currentPeriod.metrics, previousPeriod.metrics, metric);
+    return response;
+}
+
+function getScopedMetrics(current, previous, metric) {
+    if (metric && metric !== 'all') {
+        return {
+            [metric]: {
+                current: current[metric] || 0,
+                previous: previous[metric] || 0,
+                changePct: calculateChange(current[metric], previous[metric])
+            }
         };
     }
-    
-    return metrics;
+
+    const result = {};
+    for (const [key, value] of Object.entries(current)) {
+        result[key] = {
+            current: value,
+            previous: previous[key] || 0,
+            changePct: calculateChange(value, previous[key])
+        };
+    }
+    return result;
 }
 
 function calculateChange(current, previous) {
