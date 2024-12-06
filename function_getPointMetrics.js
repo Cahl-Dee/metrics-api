@@ -1,4 +1,8 @@
 async function main(params) {
+    if (!params?.user_data) {
+        params.user_data = {};
+    }
+
     const {
         chain = 'ETH',    // string            | optional, defaults to ETH
         date,             // YYYY-MM-DD string | optional, defaults to latest day available
@@ -8,55 +12,71 @@ async function main(params) {
     const prefix = `MA_${chain.toUpperCase()}_`;
     const dailyMetricsPrefix = `${prefix}daily-metrics_`;
     const dailyMetricsKey = (dateVal) => `${dailyMetricsPrefix}${dateVal}`;
-
     
     try {
-        let dateToRetrieve = date;
-
-        if (!date) {
-            // Get the latest processed date
-            const sets = await qnLib.qnListAllSets();
-            const dates = sets
-                .filter(set => set.startsWith(dailyMetricsPrefix))
-                .map(set => set.slice(-10));
-            dates.sort();
-            dateToRetrieve = dates[dates.length - 1];
-        }
-
-        // Get daily metrics
-        const dailyMetricsStr = await qnLib.qnGetSet(dailyMetricsKey(dateToRetrieve));
-        if (!dailyMetricsStr) {
-            throw new Error('No metrics found for specified date');
-        }
+        const dateToRetrieve = date ? date : await getLatestProcessedDate(dailyMetricsPrefix);
+        const metrics = await getMetricsForDate(dateToRetrieve, dailyMetricsKey);
         
-        const metrics = JSON.parse(dailyMetricsStr);
-        const secondsInDay = 86400;
-        const tps = secondsInDay > 0 ? metrics.metrics.numTransactions / secondsInDay : 0;
-        
-        return {
-            chain: chain.toLowerCase(),
-            date: dateToRetrieve,
-            blockRange: {
-                first: metrics.metadata.firstBlock,
-                last: metrics.metadata.lastBlock
-            },
-            metrics: metric && metric !== 'all' ? 
-                { [metric]: metrics.metrics[metric] } : 
-                {
-                    numTransactions: metrics.metrics.numTransactions,
-                    tps,
-                    avgTxFee: metrics.metrics.avgTxFeeEth,
-                    totalFees: metrics.metrics.totalFeesEth,
-                    avgBlockFees: metrics.metrics.avgBlockFeesEth,
-                    numContractDeployments: metrics.metrics.numContractDeployments,
-                    contractDeploymentCoverage: metrics.metrics.contractDeploymentCoverage,
-                    numActiveAddresses: metrics.metrics.numActiveAddresses,
-                    avgBlockTime: metrics.metrics.avgBlockTime
-                }
-        };
-        
+        return formatResponse(chain, dateToRetrieve, metrics, metric);
     } catch (e) {
-        console.error(`Error retrieving metrics: ${e.message}`);
-        throw e;
+        throw new Error(`Failed to retrieve metrics: ${e.message}`);
     }
+}
+
+async function getLatestProcessedDate(dailyMetricsPrefix) {
+    const sets = await qnLib.qnListAllSets();
+    const dates = sets
+        .filter(set => set.startsWith(dailyMetricsPrefix))
+        .map(set => set.slice(-10))
+        .sort();
+
+    if (!dates.length) {
+        throw new Error('No metrics data available');
+    }
+
+    return dates[dates.length - 1];
+}
+
+async function getMetricsForDate(date, dailyMetricsKey) {
+    const metricsStr = await qnLib.qnGetSet(dailyMetricsKey(date));
+    if (!metricsStr) {
+        throw new Error('No metrics found for specified date: ' + date);
+    }
+    return JSON.parse(metricsStr);
+}
+
+function formatResponse(chain, date, metricsData, metric) {
+    const tps = metricsData.metrics.numTransactions / 86400;
+
+    return {
+        chain: chain.toLowerCase(),
+        date,
+        blockRange: {
+            first: metricsData.metadata.firstBlock,
+            last: metricsData.metadata.lastBlock
+        },
+        metrics: getScopedMetrics(metricsData.metrics, metric, tps)
+    };
+}
+
+function getScopedMetrics(metrics, metric, tps) {
+    if (metric === 'tps') {
+        return { tps };
+    }
+    
+    if (metric && metric !== 'all') {
+        return { [metric]: metrics[metric] };
+    }
+
+    return {
+        numTransactions: metrics.numTransactions,
+        tps,
+        avgTxFee: metrics.avgTxFeeEth,
+        totalFees: metrics.totalFeesEth,
+        avgBlockFees: metrics.avgBlockFeesEth,
+        numContractDeployments: metrics.numContractDeployments,
+        contractDeploymentCoverage: metrics.contractDeploymentCoverage,
+        numActiveAddresses: metrics.numActiveAddresses,
+        avgBlockTime: metrics.avgBlockTime
+    };
 }
