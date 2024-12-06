@@ -85,7 +85,7 @@ function main(params) {
         timestamp: blockTimestamp,
         date: blockDate,
         numTransactions: block.transactions.length,
-        totalFeesEth: Number(totalFeesWei) / Number(weiPerEth),
+        totalFees: Number(totalFeesWei) / Number(weiPerEth),
         numContractDeployments,
         contractDeploymentCoverage: hasDebugTrace ? 'full' : 'partial',
         lastUpdated: new Date().toISOString(),
@@ -165,7 +165,7 @@ function main(params) {
 
 function calculateDayMetrics(date, blockNumbers, keys, hasDebugTrace) {
     let numTransactions = 0;
-    let totalFeesEth = 0;
+    let totalFees = 0;
     let numContractDeployments = 0;
     let firstBlock = null;
     let lastBlock = null;
@@ -199,7 +199,7 @@ function calculateDayMetrics(date, blockNumbers, keys, hasDebugTrace) {
             }
             
             numTransactions += blockMetrics.numTransactions;
-            totalFeesEth += blockMetrics.totalFeesEth;
+            totalFees += blockMetrics.totalFees;
             numContractDeployments += blockMetrics.numContractDeployments;
             numProcessedBlocks++;
             
@@ -217,16 +217,16 @@ function calculateDayMetrics(date, blockNumbers, keys, hasDebugTrace) {
     }
     
     // Calculate averages
-    const avgTxFeeEth = numTransactions > 0 ? totalFeesEth / numTransactions : 0;
-    const avgBlockFeesEth = numProcessedBlocks > 0 ? totalFeesEth / numProcessedBlocks : 0;
+    const avgTxFee = numTransactions > 0 ? totalFees / numTransactions : 0;
+    const avgBlockFees = numProcessedBlocks > 0 ? totalFees / numProcessedBlocks : 0;
     const avgBlockTime = (lastBlockTimestamp - firstBlockTimestamp) / (lastBlock - firstBlock);
     
     return {
         metrics: {
             numTransactions,
-            avgTxFeeEth,
-            totalFeesEth,
-            avgBlockFeesEth,
+            avgTxFee,
+            totalFees,
+            avgBlockFees,
             numContractDeployments,
             contractDeploymentCoverage: hasDebugTrace ? 'full' : 'partial',
             numActiveAddresses,
