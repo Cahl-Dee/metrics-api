@@ -41,11 +41,11 @@ A demonstration of how to create a blockchain data analytics api with only Quick
 
 ### Goals
 
-✔️ provide a comprehensive blockchain analytics API
-✔️ require 0 infrastructure outside of QuickNode tools `minimizes costs`
-✔️ support multiple chains (EVM only for now)
-✔️ minimize the number of KV Store reads when possible `minimizes costs` `improves efficiency`
-✔️ minimize function evocations when possible `minimizes costs`
+- provide a comprehensive blockchain analytics API
+- require 0 infrastructure outside of QuickNode tools `minimizes costs`
+- support multiple chains (EVM only for now)
+- minimize the number of KV Store reads when possible `minimizes costs` `improves efficiency`
+- minimize function evocations when possible `minimizes costs`
 
 ### Design
 
@@ -179,7 +179,7 @@ Get average metrics over a period with period-over-period comparison
 | chain | string | no | 'ETH'| Chain identifier |
 | date | string, format: 'YYYY-MM-DD' | no | Most recent processed date | Last calendar day, UTC, of period |
 | metric | string | no | 'all' | Specific metric name from [Available Metrics](#available-metrics) or 'all' |
-| days | number | no | 7 | Period length. Enum: { 7 | 30 | 90 } |
+| days | number | no | 7 | Period length. One of: 7, 30, 90 |
 
 <details>
 <summary>Sample Request</summary>
