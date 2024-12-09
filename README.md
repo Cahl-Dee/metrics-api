@@ -171,7 +171,7 @@ curl -X POST "https://api.quicknode.com/functions/rest/v1/functions/228c88b3-30e
 
 ### getRollingMetrics
 
-Get average metrics over a period with period-over-period comparison
+Get average daily value for metrics over a period, as well as a period-over-period comparison
 
 **Parameters**
 | Name | Type | Required | Default | Description |
