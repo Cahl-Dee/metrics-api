@@ -1,7 +1,8 @@
 async function main(params) {
   const simulateOnly = true;
+  const cleanupEnabled = params.user_data?.cleanup ?? true; // superceded by simulate only flag
 
-  const date = params.user_data?.date || "2024-10-09";
+  const date = params.user_data?.date || "2024-10-14";
   const chain = params.user_data?.chain || "BASE";
 
   const prefix = `MA_${chain.toUpperCase()}_`;
@@ -31,7 +32,9 @@ async function main(params) {
     date,
     blockNumbers,
     keys,
-    true
+    true,
+    simulateOnly,
+    cleanupEnabled
   );
   let returnObj = {};
 
@@ -47,7 +50,14 @@ async function main(params) {
   return returnObj;
 }
 
-async function calculateDailyMetrics(date, blockNumbers, keys, hasDebugTrace) {
+async function calculateDailyMetrics(
+  date,
+  blockNumbers,
+  keys,
+  hasDebugTrace,
+  simulateOnly,
+  cleanupEnabled
+) {
   let numTransactions = 0;
   let totalFees = 0;
   let numContractDeployments = 0;
@@ -116,6 +126,25 @@ async function calculateDailyMetrics(date, blockNumbers, keys, hasDebugTrace) {
       ? (lastBlockTimestamp - firstBlockTimestamp) / (lastBlock - firstBlock)
       : 0;
 
+  // Get contract deployment coverage from first valid block metric
+  const coverageType =
+    blockMetricsResults.find((r) => r?.blockMetrics)?.blockMetrics
+      .contractDeploymentCoverage || "unknown";
+
+  // After metrics calculation and before return, add cleanup logic
+  if (!simulateOnly && cleanupEnabled) {
+    // Cleanup temporary lists
+    await qnLib.qnDeleteList(keys.dailyBlocks(date));
+    await qnLib.qnDeleteList(keys.dailyAddresses(date));
+    await qnLib.qnDeleteList(keys.processedBlocks(date));
+
+    // Clean up block metrics
+    const blockMetricsToDelete = blockNumbers.map((num) =>
+      keys.blockMetrics(num)
+    );
+    await qnLib.qnBulkSets({ delete_sets: blockMetricsToDelete });
+  }
+
   return {
     metrics: {
       numTransactions,
@@ -123,7 +152,7 @@ async function calculateDailyMetrics(date, blockNumbers, keys, hasDebugTrace) {
       totalFees,
       avgBlockFees,
       numContractDeployments,
-      contractDeploymentCoverage: hasDebugTrace ? "full" : "partial",
+      contractDeploymentCoverage: coverageType,
       numActiveAddresses,
       avgBlockTime,
     },
@@ -139,6 +168,7 @@ async function calculateDailyMetrics(date, blockNumbers, keys, hasDebugTrace) {
       failedBlocks,
       isComplete: true,
       lastUpdated: new Date().toISOString(),
+      cleanupPerformed: !simulateOnly && cleanupEnabled,
     },
   };
 }
