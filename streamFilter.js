@@ -124,60 +124,66 @@ function main(params) {
   const prevBlockNumber = blockNumber - 1;
   const prevBlockMetricsStr = qnGetSet(keys.blockMetrics(prevBlockNumber));
   let prevBlockDate;
+
   if (prevBlockMetricsStr) {
     const prevBlockMetrics = JSON.parse(prevBlockMetricsStr);
     prevBlockDate = prevBlockMetrics.date;
-  }
 
-  // If previous block was in a different day
-  if (prevBlockDate && prevBlockDate !== blockDate) {
-    const prevDayBlocks = qnGetList(keys.dailyBlocks(prevBlockDate))
-      .map(Number)
-      .sort((a, b) => a - b);
+    // If previous block was in a different day
+    if (prevBlockDate && prevBlockDate !== blockDate) {
+      // Get blocks from both legacy and daily format
+      const [legacyBlocks, dailyBlocks] = Promise.all([
+        qnGetList(keys.processedBlocks),
+        qnGetList(keys.dailyBlocks(prevBlockDate)),
+      ]);
 
-    const isSequenceComplete =
-      prevDayBlocks.length > 0 &&
-      prevDayBlocks[prevDayBlocks.length - 1] === prevBlockNumber &&
-      prevDayBlocks.every(
-        (block, index) => index === 0 || block === prevDayBlocks[index - 1] + 1
-      );
+      // Combine and filter blocks from previous day
+      const prevDayLegacyBlocks = legacyBlocks.map(Number).filter((num) => {
+        const metrics = JSON.parse(qnGetSet(keys.blockMetrics(num)));
+        return metrics?.date === prevBlockDate;
+      });
 
-    if (isSequenceComplete) {
-      const dailyMetrics = calculateDayMetrics(
-        prevBlockDate,
-        prevDayBlocks,
-        keys,
-        hasDebugTrace
-      );
-      dailyMetrics.lastUpdated = new Date().toISOString();
+      const allPrevDayBlocks = [
+        ...new Set([...prevDayLegacyBlocks, ...dailyBlocks.map(Number)]),
+      ].sort((a, b) => a - b);
 
-      if (!simulateOnly) {
-        qnAddSet(
-          keys.dailyMetrics(prevBlockDate),
-          JSON.stringify(dailyMetrics)
+      const isSequenceComplete =
+        allPrevDayBlocks.length > 0 &&
+        allPrevDayBlocks[allPrevDayBlocks.length - 1] === prevBlockNumber &&
+        allPrevDayBlocks.every(
+          (block, index) =>
+            index === 0 || block === allPrevDayBlocks[index - 1] + 1
         );
 
-        // Cleanup temporary lists
-        qnDeleteList(keys.dailyBlocks(prevBlockDate));
-        qnDeleteList(keys.dailyAddresses(prevBlockDate));
-        qnDeleteList(keys.processedBlocks(prevBlockDate));
-
-        // Clean up temporary block metric sets
-        const blockMetricsToDelete = prevDayBlocks.map((num) =>
-          keys.blockMetrics(num)
+      if (isSequenceComplete) {
+        const dailyMetrics = calculateDayMetrics(
+          prevBlockDate,
+          allPrevDayBlocks,
+          keys,
+          hasDebugTrace
         );
-        qnBulkSets({ delete_sets: blockMetricsToDelete });
+        dailyMetrics.lastUpdated = new Date().toISOString();
+
+        if (!simulateOnly) {
+          // Store daily metrics
+          qnAddSet(
+            keys.dailyMetrics(prevBlockDate),
+            JSON.stringify(dailyMetrics)
+          );
+
+          // Cleanup temporary lists
+          qnDeleteList(keys.dailyBlocks(prevBlockDate));
+          qnDeleteList(keys.dailyAddresses(prevBlockDate));
+          qnDeleteList(keys.processedBlocks(prevBlockDate));
+
+          // Clean up block metrics
+          const blockMetricsToDelete = allPrevDayBlocks.map((num) =>
+            keys.blockMetrics(num)
+          );
+          qnBulkSets({ delete_sets: blockMetricsToDelete });
+        }
       }
     }
-
-    // use this when testing - console logging will be added in future versions, for now we need to return the object
-    // const logObj = {
-    //     blockNumber,
-    //     prevBlockDate,
-    //     status: 'day_processed',
-    //     daymetrics: dailyMetrics ? dailyMetrics.metrics : null
-    // };
-    // return logObj;
   }
 
   // use this when testing - console logging will be added in future versions, for now we need to return the object
