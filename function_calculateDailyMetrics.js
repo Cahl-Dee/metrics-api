@@ -1,3 +1,7 @@
+// TO DO:
+// - don't delete anything or write anything until we have successfully done the calculations
+// - consolidate processedBlocks and dailyBlocks into a single list
+
 async function main(params) {
   const simulateOnly = true;
   const cleanupEnabled = params.user_data?.cleanup ?? true; // superceded by simulate only flag
@@ -11,7 +15,7 @@ async function main(params) {
     dailyBlocks: (date) => `${prefix}daily-blocks_${date}`,
     dailyAddresses: (date) => `${prefix}daily-active-addresses_${date}`,
     blockMetrics: (blockNum) => `${prefix}block-metrics_${blockNum}`,
-    processedBlocks: `${prefix}blocks-processed`,
+    processedBlocks: (date) => `${prefix}blocks-processed_${date}`,
   };
 
   const dailyBlocksKey = keys.dailyBlocks(date);
@@ -41,10 +45,13 @@ async function main(params) {
   if (simulateOnly) {
     returnObj = dailyMetrics;
   } else {
-    returnObj = await qnLib.qnAddSet(
-      keys.dailyMetrics(date),
-      JSON.stringify(dailyMetrics)
-    );
+    await qnLib.qnAddSet(keys.dailyMetrics(date), JSON.stringify(dailyMetrics));
+    returnObj = {
+      status: "success",
+      date: date,
+      message: "Daily metrics calculated and stored successfully",
+      data: dailyMetrics,
+    };
   }
 
   return returnObj;
