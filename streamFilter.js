@@ -10,7 +10,6 @@ function main(params) {
   // Centralized key definitions
   const prefix = `MA_${chain.toUpperCase()}_`;
   const keys = {
-    processedBlocks: (date) => `${prefix}blocks-processed_${date}`,
     blockMetrics: (blockNumber) => `${prefix}block-metrics_${blockNumber}`,
     dailyMetrics: (date) => `${prefix}daily-metrics_${date}`,
     dailyAddresses: (date) => `${prefix}daily-active-addresses_${date}`,
@@ -43,9 +42,7 @@ function main(params) {
   const blockDate = new Date(blockTimestamp * 1000).toISOString().split("T")[0];
 
   // Check processed blocks
-  if (
-    qnContainsListItem(keys.processedBlocks(blockDate), blockNumber.toString())
-  ) {
+  if (qnContainsListItem(keys.dailyBlocks(blockDate), blockNumber.toString())) {
     // use this when testing - console logging will be added in future versions, for now we need to return the object
     // const logObj = {
     //     blockNumber,
@@ -114,9 +111,6 @@ function main(params) {
     qnAddSet(keys.blockMetrics(blockNumber), JSON.stringify(blockMetrics));
 
     // Mark block as processed in daily list
-    qnAddListItem(keys.processedBlocks(blockDate), blockNumber.toString());
-
-    // Add block to daily list
     qnAddListItem(keys.dailyBlocks(blockDate), blockNumber.toString());
   }
 
@@ -132,33 +126,22 @@ function main(params) {
     // If previous block was in a different day
     if (prevBlockDate && prevBlockDate !== blockDate) {
       // Get blocks from both legacy and daily format
-      const [legacyBlocks, dailyBlocks] = Promise.all([
-        qnGetList(keys.processedBlocks),
-        qnGetList(keys.dailyBlocks(prevBlockDate)),
-      ]);
-
-      // Combine and filter blocks from previous day
-      const prevDayLegacyBlocks = legacyBlocks.map(Number).filter((num) => {
-        const metrics = JSON.parse(qnGetSet(keys.blockMetrics(num)));
-        return metrics?.date === prevBlockDate;
-      });
-
-      const allPrevDayBlocks = [
-        ...new Set([...prevDayLegacyBlocks, ...dailyBlocks.map(Number)]),
-      ].sort((a, b) => a - b);
+      const prevDayBlocks = qnGetList(keys.dailyBlocks(prevBlockDate))
+        .map(Number)
+        .sort((a, b) => a - b);
 
       const isSequenceComplete =
-        allPrevDayBlocks.length > 0 &&
-        allPrevDayBlocks[allPrevDayBlocks.length - 1] === prevBlockNumber &&
-        allPrevDayBlocks.every(
+        prevDayBlocks.length > 0 &&
+        prevDayBlocks[prevDayBlocks.length - 1] === prevBlockNumber &&
+        prevDayBlocks.every(
           (block, index) =>
-            index === 0 || block === allPrevDayBlocks[index - 1] + 1
+            index === 0 || block === prevDayBlocks[index - 1] + 1
         );
 
       if (isSequenceComplete) {
         const dailyMetrics = calculateDayMetrics(
           prevBlockDate,
-          allPrevDayBlocks,
+          prevDayBlocks,
           keys,
           hasDebugTrace
         );
@@ -174,10 +157,9 @@ function main(params) {
           // Cleanup temporary lists
           qnDeleteList(keys.dailyBlocks(prevBlockDate));
           qnDeleteList(keys.dailyAddresses(prevBlockDate));
-          qnDeleteList(keys.processedBlocks(prevBlockDate));
 
           // Clean up block metrics
-          const blockMetricsToDelete = allPrevDayBlocks.map((num) =>
+          const blockMetricsToDelete = prevDayBlocks.map((num) =>
             keys.blockMetrics(num)
           );
           qnBulkSets({ delete_sets: blockMetricsToDelete });
