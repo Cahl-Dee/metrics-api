@@ -89,10 +89,29 @@ async function getCurrentlyProcessingStats(keys, currentDay) {
     .map((m) => JSON.parse(m))
     .sort((a, b) => new Date(a.lastUpdated) - new Date(b.lastUpdated));
 
+  // Calculate processing times between consecutive blocks
+  const processingTimes = [];
+  for (let i = 1; i < validMetrics.length; i++) {
+    const currentBlockTime = new Date(validMetrics[i].lastUpdated).getTime();
+    const previousBlockTime = new Date(
+      validMetrics[i - 1].lastUpdated
+    ).getTime();
+    const delta = currentBlockTime - previousBlockTime;
+    if (delta > 0) processingTimes.push(delta);
+  }
+
+  const medianProcessingTime =
+    processingTimes.length > 0
+      ? processingTimes.sort((a, b) => a - b)[
+          Math.floor(processingTimes.length / 2)
+        ]
+      : 0;
+
   return {
     date: currentDay.date,
     lastUpdated: validMetrics[validMetrics.length - 1]?.lastUpdated,
     blocksProcessed: validMetrics.length,
+    medianBlockProcessingTime: medianProcessingTime,
     lastProcessedBlock: {
       number: Math.max(...dailyBlocks.map(Number)),
       timestamp: validMetrics[validMetrics.length - 1]?.timestamp,
@@ -123,6 +142,7 @@ async function getProcessedDaysStats(keys, start, end) {
         numBlocks: metrics.metadata.numBlocks,
         numFailedBlocks: metrics.metadata.numFailedBlocks,
         numProcessedBlocks: metrics.metadata.numProcessedBlocks,
+        medianBlockProcessingTime: metrics.metadata.medianBlockProcessingTime,
         isSequentialWithNextDay: nextDayMetrics
           ? metrics.metadata.lastBlock ===
             JSON.parse(nextDayMetrics).metadata.firstBlock - 1
