@@ -1,12 +1,14 @@
 // TO DO:
 // - don't delete anything or write anything until we have successfully done the calculations
+// - don't have default values for the values at the top, stream needs to provide these
 
 async function main(params) {
-  const simulateOnly = true;
+  console.log(params);
+  const simulateOnly = params.user_data?.simulateOnly ?? false;
   const cleanupEnabled = params.user_data?.cleanup ?? true; // superceded by simulate only flag
 
-  const date = params.user_data?.date || "2024-10-14";
-  const chain = params.user_data?.chain || "BASE";
+  const date = params.user_data?.date || "2024-12-23";
+  const chain = params.user_data?.chain || "ETH";
 
   const prefix = `MA_${chain.toUpperCase()}_`;
   const keys = {
