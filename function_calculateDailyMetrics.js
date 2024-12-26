@@ -33,13 +33,17 @@ async function main(params) {
     );
     if (existingMetrics) {
       return {
-        error: `Daily metrics already exist for date: ${config.date}`,
+        error: `Daily metrics already exist`,
         existingMetrics: JSON.parse(existingMetrics),
+        chain: config.chain,
+        date: config.date,
       };
     }
   } catch (error) {
     return {
-      error: `Failed to check for existing daily metrics for date: ${config.date}`,
+      error: `Failed to check for existing daily metrics: ${error.message}`,
+      chain: config.chain,
+      date: config.date,
       existingMetrics: JSON.parse(existingMetrics),
     };
   }
@@ -49,11 +53,19 @@ async function main(params) {
   try {
     blockNumbers = await qnLib.qnGetList(keys.dailyBlocks(config.date));
     if (!Array.isArray(blockNumbers) || blockNumbers.length === 0) {
-      return { error: `No blocks found for date: ${config.date}` };
+      return {
+        error: `No blocks found`,
+        chain: config.chain,
+        date: config.date,
+      };
     }
     blockNumbers = blockNumbers.map(Number);
   } catch (error) {
-    return { error: `Failed to fetch block numbers: ${error.message}` };
+    return {
+      error: `Failed to fetch block numbers: ${error.message}`,
+      chain: config.chain,
+      date: config.date,
+    };
   }
 
   // Calculate metrics (no side effects)
@@ -61,10 +73,18 @@ async function main(params) {
   try {
     dailyMetrics = await calculateDailyMetrics(config.date, blockNumbers, keys);
     if (!dailyMetrics?.metrics || !dailyMetrics?.metadata) {
-      return { error: "Failed to calculate daily metrics" };
+      return {
+        error: "Failed to calculate daily metrics",
+        chain: config.chain,
+        date: config.date,
+      };
     }
   } catch (error) {
-    return { error: `Metrics calculation failed: ${error.message}` };
+    return {
+      error: `Metrics calculation failed: ${error.message}`,
+      chain: config.chain,
+      date: config.date,
+    };
   }
 
   // Handle storage and cleanup
@@ -74,6 +94,7 @@ async function main(params) {
       dailyMetricsWritten: false,
       cleanupPerformed: false,
       date: config.date,
+      chain: config.chain,
       message: "Simulation complete",
       data: dailyMetrics,
     };
@@ -92,6 +113,7 @@ async function main(params) {
       return {
         status: "success",
         date: config.date,
+        chain: config.chain,
         dailyMetricsWritten: true,
         cleanupPerformed: true,
         message: "Metrics stored and cleanup completed",
@@ -102,6 +124,7 @@ async function main(params) {
     return {
       status: "success",
       date: config.date,
+      chain: config.chain,
       dailyMetricsWritten: true,
       cleanupPerformed: false,
       message: "Metrics stored successfully",
@@ -111,6 +134,7 @@ async function main(params) {
     return {
       error: `Storage/cleanup failed: ${error.message}`,
       date: config.date,
+      chain: config.chain,
       data: dailyMetrics,
     };
   }
