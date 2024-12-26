@@ -158,6 +158,24 @@ async function calculateDailyMetrics(
     blockMetricsResults.find((r) => r?.blockMetrics)?.blockMetrics
       .contractDeploymentCoverage || "unknown";
 
+  // Calculate median processing time
+  const processingTimes = blockMetricsResults
+    .filter(
+      (result) =>
+        result?.blockMetrics?.lastUpdated && result?.blockMetrics?.timestamp
+    )
+    .map(({ blockMetrics }) => {
+      const processedAt = new Date(blockMetrics.lastUpdated).getTime();
+      const blockTime = blockMetrics.timestamp * 1000; // Convert to milliseconds
+      return processedAt - blockTime;
+    })
+    .sort((a, b) => a - b);
+
+  const medianProcessingTime =
+    processingTimes.length > 0
+      ? processingTimes[Math.floor(processingTimes.length / 2)]
+      : 0;
+
   // After metrics calculation and before return, add cleanup logic
   if (!simulateOnly && cleanupEnabled) {
     // Cleanup temporary lists
@@ -197,6 +215,7 @@ async function calculateDailyMetrics(
       isComplete: failedBlocks.length === 0 && sequenceErrors.length === 0,
       lastUpdated: new Date().toISOString(),
       cleanupPerformed: !simulateOnly && cleanupEnabled,
+      medianBlockProcessingTime: medianProcessingTime,
     },
   };
 }
