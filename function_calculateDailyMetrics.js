@@ -210,21 +210,27 @@ async function calculateDailyMetrics(date, blockNumbers, keys) {
       .contractDeploymentCoverage || "unknown";
 
   // Calculate median processing time
-  const processingTimes = blockMetricsResults
-    .filter(
-      (result) =>
-        result?.blockMetrics?.lastUpdated && result?.blockMetrics?.timestamp
-    )
-    .map(({ blockMetrics }) => {
-      const processedAt = new Date(blockMetrics.lastUpdated).getTime();
-      const blockTime = blockMetrics.timestamp * 1000; // Convert to milliseconds
-      return processedAt - blockTime;
-    })
-    .sort((a, b) => a - b);
+  const sortedMetrics = blockMetricsResults
+    .filter((result) => result?.blockMetrics?.lastUpdated)
+    .sort((a, b) => a.blockMetrics.timestamp - b.blockMetrics.timestamp);
+
+  const processingTimes = [];
+  for (let i = 1; i < sortedMetrics.length; i++) {
+    const currentUpdated = new Date(
+      sortedMetrics[i].blockMetrics.lastUpdated
+    ).getTime();
+    const previousUpdated = new Date(
+      sortedMetrics[i - 1].blockMetrics.lastUpdated
+    ).getTime();
+    const diff = currentUpdated - previousUpdated;
+    if (diff > 0) processingTimes.push(diff);
+  }
 
   const medianProcessingTime =
     processingTimes.length > 0
-      ? processingTimes[Math.floor(processingTimes.length / 2)]
+      ? processingTimes.sort((a, b) => a - b)[
+          Math.floor(processingTimes.length / 2)
+        ]
       : 0;
 
   return {
