@@ -125,46 +125,13 @@ function main(params) {
 
     // If previous block was in a different day
     if (prevBlockDate && prevBlockDate !== blockDate) {
-      // Get blocks from both legacy and daily format
-      const prevDayBlocks = qnGetList(keys.dailyBlocks(prevBlockDate))
-        .map(Number)
-        .sort((a, b) => a - b);
-
-      const isSequenceComplete =
-        prevDayBlocks.length > 0 &&
-        prevDayBlocks[prevDayBlocks.length - 1] === prevBlockNumber &&
-        prevDayBlocks.every(
-          (block, index) =>
-            index === 0 || block === prevDayBlocks[index - 1] + 1
-        );
-
-      if (isSequenceComplete) {
-        const dailyMetrics = calculateDayMetrics(
-          prevBlockDate,
-          prevDayBlocks,
-          keys,
-          hasDebugTrace
-        );
-        dailyMetrics.lastUpdated = new Date().toISOString();
-
-        if (!simulateOnly) {
-          // Store daily metrics
-          qnAddSet(
-            keys.dailyMetrics(prevBlockDate),
-            JSON.stringify(dailyMetrics)
-          );
-
-          // Cleanup temporary lists
-          qnDeleteList(keys.dailyBlocks(prevBlockDate));
-          qnDeleteList(keys.dailyAddresses(prevBlockDate));
-
-          // Clean up block metrics
-          const blockMetricsToDelete = prevDayBlocks.map((num) =>
-            keys.blockMetrics(num)
-          );
-          qnBulkSets({ delete_sets: blockMetricsToDelete });
-        }
-      }
+      return {
+        user_data: {
+          chain: chain,
+          date: prevBlockDate,
+          simulateOnly: simulateOnly,
+        },
+      };
     }
   }
 
