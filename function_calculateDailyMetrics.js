@@ -1,5 +1,4 @@
 // TO DO:
-// - don't delete anything or write anything until we have successfully done the calculations
 // - don't have default values for the values at the top, stream needs to provide these
 // - make sure first and last block are correct via RPC calls
 
@@ -33,39 +32,66 @@ async function main(params) {
     return { error: `No blocks found for the specified date: ${date}` };
   }
 
-  const dailyMetrics = await calculateDailyMetrics(
-    date,
-    blockNumbers,
-    keys,
-    true,
-    simulateOnly,
-    cleanupEnabled
-  );
+  // Calculate metrics first without any KV Store updates
+  const dailyMetrics = await calculateDailyMetrics(date, blockNumbers, keys);
+
+  // Validate calculation results
+  if (!dailyMetrics || !dailyMetrics.metrics || !dailyMetrics.metadata) {
+    return { error: "Failed to calculate daily metrics" };
+  }
+
   let returnObj = {};
 
   if (simulateOnly) {
-    returnObj = dailyMetrics;
-  } else {
-    await qnLib.qnAddSet(keys.dailyMetrics(date), JSON.stringify(dailyMetrics));
     returnObj = {
       status: "success",
+      dailyMetricsWritten: false,
+      cleanupPerformed: false,
       date: date,
-      message: "Daily metrics calculated and stored successfully",
+      message: "Simulation complete: Daily metrics calculated successfully",
       data: dailyMetrics,
     };
+  } else {
+    try {
+      await qnLib.qnAddSet(
+        keys.dailyMetrics(date),
+        JSON.stringify(dailyMetrics)
+      );
+
+      if (cleanupEnabled) {
+        await performCleanup(date, blockNumbers, keys);
+        returnObj = {
+          status: "success",
+          date: date,
+          dailyMetricsWritten: true,
+          cleanupPerformed: true,
+          message:
+            "Successfully calculated daily metrics, stored them, and cleaned up block data",
+          data: dailyMetrics,
+        };
+      } else {
+        returnObj = {
+          status: "success",
+          date: date,
+          dailyMetricsWritten: true,
+          cleanupPerformed: false,
+          message: "Successfully calculated daily metrics and stored them.",
+          data: dailyMetrics,
+        };
+      }
+    } catch (error) {
+      return {
+        error: `Failed to store metrics or perform cleanup: ${error.message}`,
+        date: date,
+        data: dailyMetrics,
+      };
+    }
   }
 
   return returnObj;
 }
 
-async function calculateDailyMetrics(
-  date,
-  blockNumbers,
-  keys,
-  hasDebugTrace,
-  simulateOnly,
-  cleanupEnabled
-) {
+async function calculateDailyMetrics(date, blockNumbers, keys) {
   let numTransactions = 0;
   let totalFees = 0;
   let numContractDeployments = 0;
@@ -176,19 +202,6 @@ async function calculateDailyMetrics(
       ? processingTimes[Math.floor(processingTimes.length / 2)]
       : 0;
 
-  // After metrics calculation and before return, add cleanup logic
-  if (!simulateOnly && cleanupEnabled) {
-    // Cleanup temporary lists
-    await qnLib.qnDeleteList(keys.dailyBlocks(date));
-    await qnLib.qnDeleteList(keys.dailyAddresses(date));
-
-    // Clean up block metrics
-    const blockMetricsToDelete = blockNumbers.map((num) =>
-      keys.blockMetrics(num)
-    );
-    await qnLib.qnBulkSets({ delete_sets: blockMetricsToDelete });
-  }
-
   return {
     metrics: {
       numTransactions,
@@ -214,8 +227,20 @@ async function calculateDailyMetrics(
       sequenceErrors,
       isComplete: failedBlocks.length === 0 && sequenceErrors.length === 0,
       lastUpdated: new Date().toISOString(),
-      cleanupPerformed: !simulateOnly && cleanupEnabled,
+      cleanupPerformed: false, // Will be updated after cleanup
       medianBlockProcessingTime: medianProcessingTime,
     },
   };
+}
+
+async function performCleanup(date, blockNumbers, keys) {
+  // Cleanup temporary lists
+  await qnLib.qnDeleteList(keys.dailyBlocks(date));
+  await qnLib.qnDeleteList(keys.dailyAddresses(date));
+
+  // Clean up block metric sets
+  const blockMetricsToDelete = blockNumbers.map((num) =>
+    keys.blockMetrics(num)
+  );
+  await qnLib.qnBulkSets({ delete_sets: blockMetricsToDelete });
 }
