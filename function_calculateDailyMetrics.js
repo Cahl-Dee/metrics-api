@@ -194,7 +194,6 @@ async function calculateDailyMetrics(
       failedBlocks,
       isSequential: sequenceErrors.length === 0,
       sequenceErrors,
-      // Update isComplete to consider sequence
       isComplete: failedBlocks.length === 0 && sequenceErrors.length === 0,
       lastUpdated: new Date().toISOString(),
       cleanupPerformed: !simulateOnly && cleanupEnabled,
