@@ -147,6 +147,8 @@ async function getProcessedDaysStats(keys, start, end) {
           ? metrics.metadata.lastBlock ===
             JSON.parse(nextDayMetrics).metadata.firstBlock - 1
           : null,
+        firstBlockNum: metrics.metadata.firstBlock,
+        lastBlockNum: metrics.metadata.lastBlock,
       });
     }
     currentDay.setDate(currentDay.getDate() + 1);
