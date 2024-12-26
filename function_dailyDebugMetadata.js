@@ -31,7 +31,7 @@ async function main(params) {
       case METHODS.GET_CURRENTLY_PROCESSING_STATS:
         const processingDay = await findCurrentProcessingDay(keys);
         if (!processingDay) throw new Error("No current processing data found");
-        response = await getCurrentMetrics(keys, processingDay);
+        response = await getCurrentlyProcessingStats(keys, processingDay);
         break;
 
       case METHODS.GET_PROCESSED_DAYS_STATS:
@@ -40,7 +40,7 @@ async function main(params) {
         const end = new Date(lastProcessedDay.date);
         const start = new Date(end);
         start.setDate(start.getDate() - days);
-        response = await getHistoricalMetrics(keys, start, end);
+        response = await getProcessedDaysStats(keys, start, end);
         break;
 
       default:
@@ -76,7 +76,7 @@ async function findMostRecentDay(keys) {
   return null;
 }
 
-async function getCurrentMetrics(keys, currentDay) {
+async function getCurrentlyProcessingStats(keys, currentDay) {
   const dailyBlocks = await qnLib.qnGetList(keys.dailyBlocks(currentDay.date));
   if (!dailyBlocks?.length) return { error: "No blocks found" };
 
@@ -100,7 +100,7 @@ async function getCurrentMetrics(keys, currentDay) {
   };
 }
 
-async function getHistoricalMetrics(keys, start, end) {
+async function getProcessedDaysStats(keys, start, end) {
   const timeseriesData = [];
   let currentDay = new Date(start);
 
