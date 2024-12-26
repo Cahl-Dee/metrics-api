@@ -1,6 +1,7 @@
 // TO DO:
 // - don't delete anything or write anything until we have successfully done the calculations
 // - don't have default values for the values at the top, stream needs to provide these
+// - make sure first and last block are correct via RPC calls
 
 async function main(params) {
   console.log(params);
@@ -74,6 +75,25 @@ async function calculateDailyMetrics(
   let lastBlockTimestamp = null;
   let numProcessedBlocks = 0;
   let failedBlocks = [];
+  let sequenceErrors = [];
+
+  // Sort blocks first
+  blockNumbers.sort((a, b) => a - b);
+
+  // Check sequence before processing
+  for (let i = 1; i < blockNumbers.length; i++) {
+    const expected = blockNumbers[i - 1] + 1;
+    const actual = blockNumbers[i];
+    if (actual !== expected) {
+      sequenceErrors.push({
+        gap: {
+          start: blockNumbers[i - 1],
+          end: blockNumbers[i],
+          missing: actual - expected,
+        },
+      });
+    }
+  }
 
   const blockMetricsPromises = blockNumbers.map(async (blockNumber) => {
     try {
@@ -172,7 +192,10 @@ async function calculateDailyMetrics(
       numProcessedBlocks,
       numFailedBlocks: failedBlocks.length,
       failedBlocks,
-      isComplete: true,
+      isSequential: sequenceErrors.length === 0,
+      sequenceErrors,
+      // Update isComplete to consider sequence
+      isComplete: failedBlocks.length === 0 && sequenceErrors.length === 0,
       lastUpdated: new Date().toISOString(),
       cleanupPerformed: !simulateOnly && cleanupEnabled,
     },
