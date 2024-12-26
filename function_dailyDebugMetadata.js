@@ -1,4 +1,5 @@
-// TODO: getting latest processed block is borked
+// TODO:
+// - clean up unused methods
 
 const METHODS = {
   GET_STREAM_STATUS: "getStreamStatus",
@@ -16,8 +17,6 @@ async function main(params) {
     chain = "BASE",
     days = 7,
     method = METHODS.GET_CURRENT_METRICS,
-    offset = 0,
-    limit = 30,
   } = params.user_data;
 
   if (![7, 30, 90].includes(days)) {
@@ -59,13 +58,7 @@ async function main(params) {
         const start = new Date(end);
         start.setDate(start.getDate() - days);
 
-        response = await getPaginatedHistoricalData(
-          keys,
-          start,
-          end,
-          offset,
-          limit
-        );
+        response = await getHistoricalData(keys, start, end);
         break;
 
       case METHODS.GET_SEQUENCE_ANALYSIS:
@@ -90,12 +83,6 @@ async function main(params) {
       error: e.message,
     };
   }
-}
-
-// Add version check helper
-async function isLegacyStorage(keys) {
-  const legacyList = await qnLib.qnGetList(keys.processedBlocks);
-  return legacyList && legacyList.length > 0;
 }
 
 async function getProcessingStatus(keys) {
@@ -259,13 +246,11 @@ async function getHistoricalProcessingData(keys, days, currentDate) {
   return { timeseriesData, sequenceAnalysis };
 }
 
-async function getPaginatedHistoricalData(keys, start, end, offset, limit) {
+async function getHistoricalData(keys, start, end) {
   const timeseriesData = [];
   let currentDay = new Date(start);
-  currentDay.setDate(currentDay.getDate() + offset);
-  let count = 0;
 
-  while (currentDay <= end && count < limit) {
+  while (currentDay <= end) {
     const dateStr = currentDay.toISOString().split("T")[0];
     const dailyMetricsStr = await qnLib.qnGetSet(keys.dailyMetrics(dateStr));
 
@@ -289,19 +274,12 @@ async function getPaginatedHistoricalData(keys, start, end, offset, limit) {
             JSON.parse(nextDayMetrics).metadata.firstBlock - 1
           : null,
       });
-      count++;
     }
     currentDay.setDate(currentDay.getDate() + 1);
   }
 
   return {
     data: timeseriesData,
-    pagination: {
-      offset,
-      limit,
-      hasMore: currentDay <= end,
-      nextOffset: offset + count,
-    },
   };
 }
 
