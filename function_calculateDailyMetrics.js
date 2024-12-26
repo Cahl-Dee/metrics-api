@@ -1,16 +1,24 @@
 // TO DO:
-// - don't have default values for the values at the top, stream needs to provide these
 // - make sure first and last block are correct via RPC calls
 
 async function main(params) {
-  console.log(params);
-  const simulateOnly = params.user_data?.simulateOnly ?? false;
-  const cleanupEnabled = params.user_data?.cleanup ?? true; // superceded by simulate only flag
+  // 1. Validate input parameters
+  if (!params.user_data?.date || !params.user_data?.chain) {
+    return {
+      error: "Missing required parameters: date and chain must be provided",
+    };
+  }
 
-  const date = params.user_data?.date || "2024-12-23";
-  const chain = params.user_data?.chain || "ETH";
+  // 2. Extract configuration
+  const config = {
+    simulateOnly: params.user_data.simulateOnly ?? false,
+    cleanupEnabled: params.user_data.cleanup ?? true,
+    date: params.user_data.date,
+    chain: params.user_data.chain,
+  };
 
-  const prefix = `MA_${chain.toUpperCase()}_`;
+  // 3. Setup keys
+  const prefix = `MA_${config.chain.toUpperCase()}_`;
   const keys = {
     dailyMetrics: (date) => `${prefix}daily-metrics_${date}`,
     dailyBlocks: (date) => `${prefix}daily-blocks_${date}`,
@@ -18,77 +26,76 @@ async function main(params) {
     blockMetrics: (blockNum) => `${prefix}block-metrics_${blockNum}`,
   };
 
-  const dailyBlocksKey = keys.dailyBlocks(date);
+  // 4. Fetch and validate block numbers
+  let blockNumbers;
+  try {
+    blockNumbers = await qnLib.qnGetList(keys.dailyBlocks(config.date));
+    if (!Array.isArray(blockNumbers) || blockNumbers.length === 0) {
+      return { error: `No blocks found for date: ${config.date}` };
+    }
+    blockNumbers = blockNumbers.map(Number);
+  } catch (error) {
+    return { error: `Failed to fetch block numbers: ${error.message}` };
+  }
 
-  let blockNumbers = await qnLib.qnGetList(dailyBlocksKey);
-  if (!Array.isArray(blockNumbers)) {
+  // 5. Calculate metrics (no side effects)
+  let dailyMetrics;
+  try {
+    dailyMetrics = await calculateDailyMetrics(config.date, blockNumbers, keys);
+    if (!dailyMetrics?.metrics || !dailyMetrics?.metadata) {
+      return { error: "Failed to calculate daily metrics" };
+    }
+  } catch (error) {
+    return { error: `Metrics calculation failed: ${error.message}` };
+  }
+
+  // 6. Handle storage and cleanup
+  if (config.simulateOnly) {
     return {
-      error: `Failed to fetch an array of block numbers for the specified date: ${date}`,
-    };
-  }
-  blockNumbers = blockNumbers.map(Number);
-
-  if (blockNumbers.length === 0) {
-    return { error: `No blocks found for the specified date: ${date}` };
-  }
-
-  // Calculate metrics first without any KV Store updates
-  const dailyMetrics = await calculateDailyMetrics(date, blockNumbers, keys);
-
-  // Validate calculation results
-  if (!dailyMetrics || !dailyMetrics.metrics || !dailyMetrics.metadata) {
-    return { error: "Failed to calculate daily metrics" };
-  }
-
-  let returnObj = {};
-
-  if (simulateOnly) {
-    returnObj = {
       status: "success",
       dailyMetricsWritten: false,
       cleanupPerformed: false,
-      date: date,
-      message: "Simulation complete: Daily metrics calculated successfully",
+      date: config.date,
+      message: "Simulation complete",
       data: dailyMetrics,
     };
-  } else {
-    try {
-      await qnLib.qnAddSet(
-        keys.dailyMetrics(date),
-        JSON.stringify(dailyMetrics)
-      );
+  }
 
-      if (cleanupEnabled) {
-        await performCleanup(date, blockNumbers, keys);
-        returnObj = {
-          status: "success",
-          date: date,
-          dailyMetricsWritten: true,
-          cleanupPerformed: true,
-          message:
-            "Successfully calculated daily metrics, stored them, and cleaned up block data",
-          data: dailyMetrics,
-        };
-      } else {
-        returnObj = {
-          status: "success",
-          date: date,
-          dailyMetricsWritten: true,
-          cleanupPerformed: false,
-          message: "Successfully calculated daily metrics and stored them.",
-          data: dailyMetrics,
-        };
-      }
-    } catch (error) {
+  try {
+    // Store metrics
+    await qnLib.qnAddSet(
+      keys.dailyMetrics(config.date),
+      JSON.stringify(dailyMetrics)
+    );
+
+    // Perform cleanup if enabled
+    if (config.cleanupEnabled) {
+      await performCleanup(config.date, blockNumbers, keys);
       return {
-        error: `Failed to store metrics or perform cleanup: ${error.message}`,
-        date: date,
+        status: "success",
+        date: config.date,
+        dailyMetricsWritten: true,
+        cleanupPerformed: true,
+        message: "Metrics stored and cleanup completed",
         data: dailyMetrics,
       };
     }
-  }
 
-  return returnObj;
+    return {
+      status: "success",
+      date: config.date,
+      dailyMetricsWritten: true,
+      cleanupPerformed: false,
+      message: "Metrics stored successfully",
+      data: dailyMetrics,
+    };
+  } catch (error) {
+    return {
+      error: `Storage/cleanup failed: ${error.message}`,
+      date: config.date,
+      data: dailyMetrics,
+    };
+  }
 }
 
 async function calculateDailyMetrics(date, blockNumbers, keys) {
