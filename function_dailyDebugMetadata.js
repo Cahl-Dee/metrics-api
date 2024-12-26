@@ -165,11 +165,26 @@ async function findCurrentProcessingDay(keys) {
   // Check today first, then yesterday
   for (const date of [today, yesterday]) {
     const dateStr = date.toISOString().split("T")[0];
-    const dailyBlocks = await qnLib.qnGetList(keys.dailyBlocks(dateStr));
+    let dailyBlocks = await qnLib.qnGetList(keys.dailyBlocks(dateStr));
     if (dailyBlocks?.length) {
       return { date: dateStr };
     }
   }
+
+  // If no blocks yesterday, check in 10 day chunks up to 90 days
+  const date = new Date(yesterday);
+  for (let chunk = 0; chunk < 9; chunk++) {
+    // 9 chunks of 10 days = 90 days
+    for (let i = 0; i < 10; i++) {
+      const dateStr = date.toISOString().split("T")[0];
+      const dailyBlocks = await qnLib.qnGetList(keys.dailyBlocks(dateStr));
+      if (dailyBlocks?.length) {
+        return { date: dateStr };
+      }
+      date.setDate(date.getDate() - 1);
+    }
+  }
+
   return null;
 }
 
