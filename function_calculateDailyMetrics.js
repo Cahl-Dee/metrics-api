@@ -2,14 +2,14 @@
 // - make sure first and last block are correct via RPC calls
 
 async function main(params) {
-  // 1. Validate input parameters
+  // Validate input parameters
   if (!params.user_data?.date || !params.user_data?.chain) {
     return {
       error: "Missing required parameters: date and chain must be provided",
     };
   }
 
-  // 2. Extract configuration
+  // Extract configuration
   const config = {
     simulateOnly: params.user_data.simulateOnly ?? false,
     cleanupEnabled: params.user_data.cleanup ?? true,
@@ -17,7 +17,7 @@ async function main(params) {
     chain: params.user_data.chain,
   };
 
-  // 3. Setup keys
+  // Setup keys
   const prefix = `MA_${config.chain.toUpperCase()}_`;
   const keys = {
     dailyMetrics: (date) => `${prefix}daily-metrics_${date}`,
@@ -26,7 +26,25 @@ async function main(params) {
     blockMetrics: (blockNum) => `${prefix}block-metrics_${blockNum}`,
   };
 
-  // 4. Fetch and validate block numbers
+  // Check if daily metrics already exist
+  try {
+    const existingMetrics = await qnLib.qnGetSet(
+      keys.dailyMetrics(config.date)
+    );
+    if (existingMetrics) {
+      return {
+        error: `Daily metrics already exist for date: ${config.date}`,
+        existingMetrics: JSON.parse(existingMetrics),
+      };
+    }
+  } catch (error) {
+    return {
+      error: `Failed to check for existing daily metrics for date: ${config.date}`,
+      existingMetrics: JSON.parse(existingMetrics),
+    };
+  }
+
+  // Fetch and validate block numbers
   let blockNumbers;
   try {
     blockNumbers = await qnLib.qnGetList(keys.dailyBlocks(config.date));
@@ -38,7 +56,7 @@ async function main(params) {
     return { error: `Failed to fetch block numbers: ${error.message}` };
   }
 
-  // 5. Calculate metrics (no side effects)
+  // Calculate metrics (no side effects)
   let dailyMetrics;
   try {
     dailyMetrics = await calculateDailyMetrics(config.date, blockNumbers, keys);
@@ -49,7 +67,7 @@ async function main(params) {
     return { error: `Metrics calculation failed: ${error.message}` };
   }
 
-  // 6. Handle storage and cleanup
+  // Handle storage and cleanup
   if (config.simulateOnly) {
     return {
       status: "success",
