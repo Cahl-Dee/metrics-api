@@ -72,6 +72,19 @@ async function main(params) {
   let dailyMetrics;
   try {
     dailyMetrics = await calculateDailyMetrics(config.date, blockNumbers, keys);
+
+    // Check for missing blocks
+    if (dailyMetrics.missingBlocks) {
+      return {
+        error: "Cannot proceed - missing block metrics",
+        chain: config.chain,
+        date: config.date,
+        totalMissingBlocks: dailyMetrics.totalMissing,
+        missingBlocksSample: dailyMetrics.sampleMissing,
+        message: `Missing ${dailyMetrics.totalMissing} blocks`,
+      };
+    }
+
     if (!dailyMetrics?.metrics || !dailyMetrics?.metadata) {
       return {
         error: "Failed to calculate daily metrics",
@@ -191,6 +204,20 @@ async function calculateDailyMetrics(date, blockNumbers, keys) {
   });
 
   const blockMetricsResults = await Promise.all(blockMetricsPromises);
+
+  // Early check for missing blocks
+  const missingBlocks = blockMetricsResults
+    .map((result, index) => (!result ? blockNumbers[index] : null))
+    .filter((block) => block !== null);
+
+  if (missingBlocks.length > 0) {
+    return {
+      missingBlocks: true,
+      totalMissing: missingBlocks.length,
+      sampleMissing: missingBlocks.slice(0, 10),
+      allMissingBlocks: missingBlocks,
+    };
+  }
 
   blockMetricsResults.forEach(({ blockNumber, blockMetrics }) => {
     if (!blockMetrics) return;
