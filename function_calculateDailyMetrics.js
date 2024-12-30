@@ -9,6 +9,26 @@ async function main(params) {
     };
   }
 
+  // Validate date format (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(params.user_data.date)) {
+    return {
+      error: "Invalid date format. Expected YYYY-MM-DD",
+      date: params.user_data.date,
+    };
+  }
+
+  // Validate chain parameter
+  if (
+    typeof params.user_data.chain !== "string" ||
+    !params.user_data.chain.trim()
+  ) {
+    return {
+      error: "Invalid chain parameter. Expected a non-empty string",
+      chain: params.user_data.chain,
+    };
+  }
+
   // Extract configuration
   const config = {
     simulateOnly: params.user_data.simulateOnly ?? false,
@@ -32,19 +52,28 @@ async function main(params) {
       keys.dailyMetrics(config.date)
     );
     if (existingMetrics) {
-      return {
-        error: `Daily metrics already exist`,
-        existingMetrics: JSON.parse(existingMetrics),
-        chain: config.chain,
-        date: config.date,
-      };
+      try {
+        const parsedMetrics = JSON.parse(existingMetrics);
+        return {
+          error: `Daily metrics already exist`,
+          existingMetrics: parsedMetrics,
+          chain: config.chain,
+          date: config.date,
+        };
+      } catch (parseError) {
+        return {
+          error: `Invalid JSON format in existing metrics: ${parseError.message}`,
+          chain: config.chain,
+          date: config.date,
+          rawMetrics: existingMetrics,
+        };
+      }
     }
   } catch (error) {
     return {
       error: `Failed to check for existing daily metrics: ${error.message}`,
       chain: config.chain,
       date: config.date,
-      existingMetrics: existingMetrics,
     };
   }
 
