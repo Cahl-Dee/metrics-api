@@ -1,15 +1,15 @@
 // TO DO:
 // - make sure first and last block are correct via RPC calls
 
-async function main(params) {
-  // Validate input parameters
+function validateInput(params) {
+  // Check required parameters
   if (!params.user_data?.date || !params.user_data?.chain) {
     return {
       error: "Missing required parameters: date and chain must be provided",
     };
   }
 
-  // Validate date format (YYYY-MM-DD)
+  // Validate date format
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(params.user_data.date)) {
     return {
@@ -18,7 +18,7 @@ async function main(params) {
     };
   }
 
-  // Validate chain parameter
+  // Validate chain
   if (
     typeof params.user_data.chain !== "string" ||
     !params.user_data.chain.trim()
@@ -29,13 +29,25 @@ async function main(params) {
     };
   }
 
-  // Extract configuration
-  const config = {
-    simulateOnly: params.user_data.simulateOnly ?? false,
-    cleanupEnabled: params.user_data.cleanup ?? true,
-    date: params.user_data.date,
-    chain: params.user_data.chain,
+  // Return validated config
+  return {
+    success: true,
+    config: {
+      simulateOnly: params.user_data.simulateOnly ?? false,
+      cleanupEnabled: params.user_data.cleanup ?? true,
+      date: params.user_data.date,
+      chain: params.user_data.chain,
+    },
   };
+}
+
+async function main(params) {
+  // Validate input
+  const validation = validateInput(params);
+  if (validation.error) {
+    return validation;
+  }
+  const config = validation.config;
 
   // Setup keys
   const prefix = `MA_${config.chain.toUpperCase()}_`;
