@@ -44,7 +44,7 @@ async function main(params) {
       error: `Failed to check for existing daily metrics: ${error.message}`,
       chain: config.chain,
       date: config.date,
-      existingMetrics: JSON.parse(existingMetrics),
+      existingMetrics: existingMetrics,
     };
   }
 
